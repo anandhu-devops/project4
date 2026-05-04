@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-green
+  namespace: project4
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user
+      version: green
+  template:
+    metadata:
+      labels:
+        app: user
+        version: green
+    spec:
+      containers:
+        - name: user
+          image: yourdockerhub/user-service:v2
+          ports:
+            - containerPort: 3001
