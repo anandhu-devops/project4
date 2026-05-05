@@ -67,60 +67,31 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
-            steps {
+        stage('Deploy to Kubernetes (AWS)') {
+    steps {
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'aws-creds',
+                usernameVariable: 'AWS_ACCESS_KEY_ID',
+                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+            )
+        ]) {
+            sh '''
+                set -e
 
-                // IMPORTANT: aws-creds must exist in Jenkins Credentials
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                export AWS_DEFAULT_REGION=ap-south-1
 
-                    sh '''
-                    export AWS_DEFAULT_REGION=$AWS_REGION
+                echo "🔐 Verifying AWS identity..."
+                aws sts get-caller-identity
 
-                    echo "🔐 Checking AWS identity..."
-                    aws sts get-caller-identity
+                echo "🔄 Updating kubeconfig..."
+                aws eks update-kubeconfig \
+                    --region ap-south-1 \
+                    --name your-eks-cluster-name
 
-                    echo "⚙️ Updating kubeconfig..."
-                    aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
-
-                    echo "📡 Cluster nodes:"
-                    kubectl get nodes
-
-                    echo "🚀 Applying manifests..."
-                    kubectl apply -f k8s/ -n $NAMESPACE
-
-                    echo "⏳ Rolling out deployments..."
-                    kubectl rollout status deployment/user-service -n $NAMESPACE
-                    kubectl rollout status deployment/product-service -n $NAMESPACE
-                    kubectl rollout status deployment/order-service -n $NAMESPACE
-                    kubectl rollout status deployment/payment-service -n $NAMESPACE
-
-                    echo "🔄 Updating images..."
-                    kubectl set image deployment/user-service user-service=$DOCKERHUB_USER/user-service:$IMAGE_TAG -n $NAMESPACE
-                    kubectl set image deployment/product-service product-service=$DOCKERHUB_USER/product-service:$IMAGE_TAG -n $NAMESPACE
-                    kubectl set image deployment/order-service order-service=$DOCKERHUB_USER/order-service:$IMAGE_TAG -n $NAMESPACE
-                    kubectl set image deployment/payment-service payment-service=$DOCKERHUB_USER/payment-service:$IMAGE_TAG -n $NAMESPACE
-
-                    echo "⏳ Waiting rollout after update..."
-                    kubectl rollout status deployment/user-service -n $NAMESPACE
-                    kubectl rollout status deployment/product-service -n $NAMESPACE
-                    kubectl rollout status deployment/order-service -n $NAMESPACE
-                    kubectl rollout status deployment/payment-service -n $NAMESPACE
-                    '''
-                }
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Pipeline succeeded! Deployment completed."
-        }
-        failure {
-            echo "❌ Pipeline failed! Check logs."
+                echo "🚀 Deploying to Kubernetes..."
+                kubectl apply -f k8s/
+            '''
         }
     }
 }
