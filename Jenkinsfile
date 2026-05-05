@@ -24,6 +24,12 @@ pipeline {
                 docker build -t ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ./product-service
                 docker build -t ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} ./order-service
                 docker build -t ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} ./payment-service
+
+                # ✅ CREATE latest TAGS (THIS WAS MISSING)
+                docker tag ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} ${DOCKERHUB_USER}/user-service:latest
+                docker tag ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ${DOCKERHUB_USER}/product-service:latest
+                docker tag ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} ${DOCKERHUB_USER}/order-service:latest
+                docker tag ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} ${DOCKERHUB_USER}/payment-service:latest
                 """
             }
         }
@@ -44,6 +50,12 @@ pipeline {
 
                     docker push ${DOCKERHUB_USER}/product-service:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USER}/product-service:latest
+
+                    docker push ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USER}/order-service:latest
+
+                    docker push ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USER}/payment-service:latest
                     """
                 }
             }
@@ -60,34 +72,32 @@ pipeline {
                     sh """
                     export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                    echo "🔐 Checking AWS identity..."
                     aws sts get-caller-identity
 
-                    echo "⚙️ Updating kubeconfig..."
                     aws eks update-kubeconfig \
                       --region ${AWS_REGION} \
                       --name ${CLUSTER_NAME}
 
-                    echo "📡 Cluster nodes:"
                     kubectl get nodes
 
-                    echo "🚀 Applying Kubernetes manifests..."
                     kubectl apply -f k8s/ -n ${NAMESPACE} --validate=false
 
-                    echo "⏳ Waiting for deployments to be ready..."
-                    kubectl rollout status deployment/user-service -n ${NAMESPACE}
-                    kubectl rollout status deployment/product-service -n ${NAMESPACE}
-
-                    echo "📦 Updating images..."
                     kubectl set image deployment/user-service \
                       user-service=${DOCKERHUB_USER}/user-service:${IMAGE_TAG} -n ${NAMESPACE}
 
                     kubectl set image deployment/product-service \
                       product-service=${DOCKERHUB_USER}/product-service:${IMAGE_TAG} -n ${NAMESPACE}
 
-                    echo "⏳ Waiting for rollout after update..."
+                    kubectl set image deployment/order-service \
+                      order-service=${DOCKERHUB_USER}/order-service:${IMAGE_TAG} -n ${NAMESPACE}
+
+                    kubectl set image deployment/payment-service \
+                      payment-service=${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} -n ${NAMESPACE}
+
                     kubectl rollout status deployment/user-service -n ${NAMESPACE}
                     kubectl rollout status deployment/product-service -n ${NAMESPACE}
+                    kubectl rollout status deployment/order-service -n ${NAMESPACE}
+                    kubectl rollout status deployment/payment-service -n ${NAMESPACE}
                     """
                 }
             }
@@ -96,10 +106,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline succeeded! Deployment updated successfully.'
+            echo '✅ Pipeline succeeded!'
         }
         failure {
-            echo '❌ Pipeline failed! Check logs for errors.'
+            echo '❌ Pipeline failed!'
         }
     }
 }
