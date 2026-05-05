@@ -4,8 +4,9 @@ pipeline {
     environment {
         DOCKERHUB_USER = 'anandhukdevops'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        AWS_REGION = 'ap-south-1'
+        NAMESPACE = 'project4'
         CLUSTER_NAME = 'eks-cluster-final'
+        AWS_REGION = 'ap-south-1'
     }
 
     stages {
@@ -19,23 +20,23 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                sh """
+                sh '''
                 docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG ./user-service
                 docker build -t $DOCKERHUB_USER/product-service:$IMAGE_TAG ./product-service
                 docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG ./order-service
                 docker build -t $DOCKERHUB_USER/payment-service:$IMAGE_TAG ./payment-service
-                """
+                '''
             }
         }
 
         stage('Tag Latest Images') {
             steps {
-                sh """
+                sh '''
                 docker tag $DOCKERHUB_USER/user-service:$IMAGE_TAG $DOCKERHUB_USER/user-service:latest
                 docker tag $DOCKERHUB_USER/product-service:$IMAGE_TAG $DOCKERHUB_USER/product-service:latest
                 docker tag $DOCKERHUB_USER/order-service:$IMAGE_TAG $DOCKERHUB_USER/order-service:latest
                 docker tag $DOCKERHUB_USER/payment-service:$IMAGE_TAG $DOCKERHUB_USER/payment-service:latest
-                """
+                '''
             }
         }
 
@@ -46,7 +47,7 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
+                    sh '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
 
                     docker push $DOCKERHUB_USER/user-service:$IMAGE_TAG
@@ -60,7 +61,7 @@ pipeline {
 
                     docker push $DOCKERHUB_USER/payment-service:$IMAGE_TAG
                     docker push $DOCKERHUB_USER/payment-service:latest
-                    """
+                    '''
                 }
             }
         }
@@ -68,27 +69,25 @@ pipeline {
         stage('Deploy to Kubernetes (AWS EKS)') {
             steps {
                 withCredentials([
-                    [
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds'
-                    ]
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
-                    sh """
-                    set -e
+                    sh '''
+                        set -e
 
-                    export AWS_DEFAULT_REGION=$AWS_REGION
+                        export AWS_DEFAULT_REGION=ap-south-1
 
-                    echo "🔐 Verifying AWS identity..."
-                    aws sts get-caller-identity
+                        echo "🔐 Checking AWS identity..."
+                        aws sts get-caller-identity
 
-                    echo "🔄 Updating kubeconfig..."
-                    aws eks update-kubeconfig \
-                        --region $AWS_REGION \
-                        --name $CLUSTER_NAME
+                        echo "⚙️ Updating kubeconfig..."
+                        aws eks update-kubeconfig \
+                            --region ap-south-1 \
+                            --name eks-cluster-final
 
-                    echo "🚀 Deploying to Kubernetes..."
-                    kubectl apply -f k8s/
-                    """
+                        echo "🚀 Deploying to Kubernetes..."
+                        kubectl apply -f k8s/
+                    '''
                 }
             }
         }
