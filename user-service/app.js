@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001;
 // ✅ User Schema
 const User = mongoose.model("User", {
   email: String,
-  password: Stringa
+  password: String
 });
 
 // ✅ Routes
@@ -55,15 +55,22 @@ app.get("/", (req, res) => {
   res.send("User Service is running");
 });
 
-// ✅ Connect DB then start server
-mongoose.connect(MONGO_URL)
-  .then(() => {
-    console.log("MongoDB connected");
+// ✅ Start server immediately
+app.listen(PORT, () => {
+  console.log(`User service running on port ${PORT}`);
+});
 
-    app.listen(PORT, () => {
-      console.log(`User service running on port ${PORT}`);
+// ✅ Connect to MongoDB with retry logic
+const connectDB = () => {
+  mongoose.connect(MONGO_URL)
+    .then(() => {
+      console.log("MongoDB connected");
+    })
+    .catch(err => {
+      console.error("MongoDB connection error:", err.message);
+      console.log("Retrying MongoDB connection in 5 seconds...");
+      setTimeout(connectDB, 5000);
     });
-  })
-  .catch(err => {
-    console.error("MongoDB connection error:", err);
-  });
+};
+
+connectDB();
