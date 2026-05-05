@@ -24,12 +24,6 @@ pipeline {
                 docker build -t ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ./product-service
                 docker build -t ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} ./order-service
                 docker build -t ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} ./payment-service
-
-                # ✅ CREATE latest TAGS (THIS WAS MISSING)
-                docker tag ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} ${DOCKERHUB_USER}/user-service:latest
-                docker tag ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ${DOCKERHUB_USER}/product-service:latest
-                docker tag ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} ${DOCKERHUB_USER}/order-service:latest
-                docker tag ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} ${DOCKERHUB_USER}/payment-service:latest
                 """
             }
         }
@@ -43,7 +37,7 @@ pipeline {
                 )]) {
 
                     sh """
-                    echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
 
                     docker push ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USER}/user-service:latest
@@ -106,7 +100,7 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline succeeded!'
+            echo '✅ Pipeline succeeded! Deployment completed.'
         }
         failure {
             echo '❌ Pipeline failed!'
