@@ -20,11 +20,10 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh """
-                docker build -t ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} ./userservice
-                docker build -t ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ./productservice
-
-                docker tag ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} ${DOCKERHUB_USER}/user-service:latest
-                docker tag ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ${DOCKERHUB_USER}/product-service:latest
+                docker build -t ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} ./user-service
+                docker build -t ${DOCKERHUB_USER}/product-service:${IMAGE_TAG} ./product-service
+                docker build -t ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} ./order-service
+                docker build -t ${DOCKERHUB_USER}/payment-service:${IMAGE_TAG} ./payment-service
                 """
             }
         }
