@@ -1,0 +1,114 @@
+name: Build & Deploy to EKS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'user-service/**'
+      - 'product-service/**'
+      - 'order-service/**'
+      - 'payment-service/**'
+      - 'k8s/**'
+      - '.github/workflows/deploy.yml'
+
+env:
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER: eks-cluster-final
+  EKS_NAMESPACE: project4
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      # Build and push user-service
+      - name: Build & push user-service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./user-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/user-service:latest
+            ${{ secrets.DOCKER_USERNAME }}/user-service:${{ github.sha }}
+      
+      # Build and push product-service
+      - name: Build & push product-service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./product-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/product-service:latest
+            ${{ secrets.DOCKER_USERNAME }}/product-service:${{ github.sha }}
+      
+      # Build and push order-service
+      - name: Build & push order-service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./order-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/order-service:latest
+            ${{ secrets.DOCKER_USERNAME }}/order-service:${{ github.sha }}
+      
+      # Build and push payment-service
+      - name: Build & push payment-service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./payment-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/payment-service:latest
+            ${{ secrets.DOCKER_USERNAME }}/payment-service:${{ github.sha }}
+      
+      # Update kubeconfig
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      
+      # Deploy to EKS
+      - name: Deploy user-service
+        run: |
+          kubectl set image deployment/user-service -n ${{ env.EKS_NAMESPACE }} \
+            user-service=${{ secrets.DOCKER_USERNAME }}/user-service:${{ github.sha }} --record
+          kubectl rollout status deployment/user-service -n ${{ env.EKS_NAMESPACE }} --timeout=5m
+      
+      - name: Deploy product-service
+        run: |
+          kubectl set image deployment/product-service -n ${{ env.EKS_NAMESPACE }} \
+            product-service=${{ secrets.DOCKER_USERNAME }}/product-service:${{ github.sha }} --record
+          kubectl rollout status deployment/product-service -n ${{ env.EKS_NAMESPACE }} --timeout=5m
+      
+      - name: Deploy order-service
+        run: |
+          kubectl set image deployment/order-service -n ${{ env.EKS_NAMESPACE }} \
+            order-service=${{ secrets.DOCKER_USERNAME }}/order-service:${{ github.sha }} --record
+          kubectl rollout status deployment/order-service -n ${{ env.EKS_NAMESPACE }} --timeout=5m
+      
+      - name: Deploy payment-service
+        run: |
+          kubectl set image deployment/payment-service -n ${{ env.EKS_NAMESPACE }} \
+            payment-service=${{ secrets.DOCKER_USERNAME }}/payment-service:${{ github.sha }} --record
+          kubectl rollout status deployment/payment-service -n ${{ env.EKS_NAMESPACE }} --timeout=5m
+      
+      - name: Verify deployment
+        run: |
+          echo "All services deployed successfully!"
+          kubectl get pods -n ${{ env.EKS_NAMESPACE }}
+          kubectl get svc -n ${{ env.EKS_NAMESPACE }}
